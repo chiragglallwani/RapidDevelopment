@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -231,6 +232,52 @@ fun ProjectDetailScreen(
     }
 }
 
+// Helper function to check if dark mode
+@Composable
+private fun isDarkMode(): Boolean {
+    // Check if surface color is dark (luminance < 0.5)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val luminance = (0.299 * surfaceColor.red + 0.587 * surfaceColor.green + 0.114 * surfaceColor.blue)
+    return luminance < 0.5
+}
+
+// Helper function to get pastel background color for status (works in both light and dark mode)
+@Composable
+private fun getStatusBackgroundColor(status: String): Color {
+    val isDark = isDarkMode()
+    return when (status) {
+        "to-do" -> if (isDark) Color(0xFF1E3A5F) else Color(0xFFE0F2F7) // Light blue / Dark blue
+        "in-progress" -> if (isDark) Color(0xFF5D4E37) else Color(0xFFFFFDE7) // Light yellow / Dark yellow
+        "blocked" -> if (isDark) Color(0xFF5D1F1F) else Color(0xFFFFEBEE) // Light red/pink / Dark red
+        "done" -> if (isDark) Color(0xFF1F3D1F) else Color(0xFFE8F5E9) // Light green / Dark green
+        else -> MaterialTheme.colorScheme.surface
+    }
+}
+
+// Helper function to get status accent color for icons and text
+@Composable
+private fun getStatusAccentColor(status: String): Color {
+    val isDark = isDarkMode()
+    return when (status) {
+        "to-do" -> if (isDark) Color(0xFF64B5F6) else Color(0xFF1976D2) // Blue
+        "in-progress" -> if (isDark) Color(0xFFFFB74D) else Color(0xFFF57C00) // Orange
+        "blocked" -> if (isDark) Color(0xFFEF5350) else Color(0xFFD32F2F) // Red
+        "done" -> if (isDark) Color(0xFF66BB6A) else Color(0xFF388E3C) // Green
+        else -> MaterialTheme.colorScheme.primary
+    }
+}
+
+// Helper function to get text color for status sections
+@Composable
+private fun getStatusTextColor(status: String): Color {
+    val isDark = isDarkMode()
+    return if (isDark) {
+        Color.White.copy(alpha = 0.87f)
+    } else {
+        Color(0xFF212121) // Dark gray for light mode
+    }
+}
+
 // Helper function to get meaningful empty state message based on status
 private fun getEmptyStatusMessage(status: String): String {
     return when (status) {
@@ -347,13 +394,9 @@ fun TaskStatusAccordion(
         else -> status.replaceFirstChar { it.uppercase() }
     }
 
-    val statusColor = when (status) {
-        "to-do" -> MaterialTheme.colorScheme.secondary
-        "in-progress" -> MaterialTheme.colorScheme.primary
-        "blocked" -> MaterialTheme.colorScheme.error
-        "done" -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.secondary
-    }
+    val statusAccentColor = getStatusAccentColor(status)
+    val statusBackgroundColor = getStatusBackgroundColor(status)
+    val statusTextColor = getStatusTextColor(status)
 
     val statusIcon = when (status) {
         "to-do" -> Icons.Default.Circle
@@ -369,12 +412,12 @@ fun TaskStatusAccordion(
             .animateContentSize()
             .border(
                 width = 1.dp,
-                color = statusColor.copy(alpha = 0.3f),
+                color = statusAccentColor.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(12.dp)
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = statusBackgroundColor
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -384,7 +427,7 @@ fun TaskStatusAccordion(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded },
-                color = statusColor.copy(alpha = 0.1f),
+                color = statusAccentColor.copy(alpha = 0.2f),
                 shape = if (isExpanded) RoundedCornerShape(
                     topStart = 12.dp,
                     topEnd = 12.dp,
@@ -406,14 +449,14 @@ fun TaskStatusAccordion(
                         Icon(
                             imageVector = statusIcon,
                             contentDescription = null,
-                            tint = statusColor,
+                            tint = statusAccentColor,
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
                             text = "$statusDisplayName (${tasks.size})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = statusColor
+                            color = statusTextColor
                         )
                     }
 
@@ -421,7 +464,7 @@ fun TaskStatusAccordion(
                         imageVector = Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Collapse" else "Expand",
                         modifier = Modifier.rotate(rotationState),
-                        tint = statusColor
+                        tint = statusTextColor.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -448,18 +491,18 @@ fun TaskStatusAccordion(
                                     imageVector = Icons.Default.Task,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
-                                    tint = statusColor.copy(alpha = 0.5f)
+                                    tint = statusAccentColor.copy(alpha = 0.5f)
                                 )
                                 Text(
                                     text = getEmptyStatusMessage(status),
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = statusTextColor.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center
                                 )
                                 Text(
                                     text = getEmptyStatusSubMessage(status),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    color = statusTextColor.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -468,6 +511,7 @@ fun TaskStatusAccordion(
                         tasks.forEach { task ->
                             TaskCard(
                                 task = task,
+                                status = status,
                                 onStatusChange = { newStatus, blockReason ->
                                     onTaskStatusChange(task, newStatus, blockReason)
                                 },
@@ -485,6 +529,7 @@ fun TaskStatusAccordion(
 @Composable
 fun TaskCard(
     task: Task,
+    status: String,
     onStatusChange: (String, String?) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -494,12 +539,23 @@ fun TaskCard(
     var showBlockReasonDialog by remember { mutableStateOf(false) }
     var pendingStatus by remember { mutableStateOf<String?>(null) }
     
+    val statusBackgroundColor = getStatusBackgroundColor(status)
+    val statusTextColor = getStatusTextColor(status)
+    val statusAccentColor = getStatusAccentColor(status)
+    
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = statusAccentColor.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(8.dp)
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
+            containerColor = statusBackgroundColor
+        ),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier
@@ -515,19 +571,45 @@ fun TaskCard(
                     Text(
                         text = task.title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = statusTextColor
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = task.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = statusTextColor.copy(alpha = 0.7f)
                     )
+                    // Show block reason if task is blocked
+                    if (task.status == "blocked" && !task.blockReason.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = statusTextColor.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                text = "Blocker: ${task.blockReason}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = statusTextColor.copy(alpha = 0.7f),
+                                fontStyle = FontStyle.Italic
+                            )
+                        }
+                    }
                 }
                 
                 Box {
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                        Icon(
+                            Icons.Default.MoreVert, 
+                            contentDescription = "Menu",
+                            tint = statusTextColor.copy(alpha = 0.7f)
+                        )
                     }
                     
                     DropdownMenu(
