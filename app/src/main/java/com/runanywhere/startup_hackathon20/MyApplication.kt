@@ -53,5 +53,11 @@ class MyApplication : Application() {
             name = "Qwen 2.5 0.5B Instruct Q6_K",
             type = "LLM"
         )
+
+        addModelFromURL(
+            url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q6_k.gguf",
+            name = "Qwen 2.5 1.5B Instruct Q6_K",
+            type = "LLM"
+        )
     }
 }

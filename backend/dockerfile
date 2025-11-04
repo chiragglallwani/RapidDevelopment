@@ -1,0 +1,68 @@
+From node:20-alpine AS DEVELOPMENT
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY tsconfig.json ./
+
+COPY . .
+
+RUN npm run build
+
+CMD ["npm", "run", "dev"]
+
+
+# # -----------------------------------------------------------
+# # Stage 1: The Builder Stage
+# # Installs all dependencies (including dev) and runs the build (transpilation) command.
+# # -----------------------------------------------------------
+# FROM node:20-alpine AS builder
+
+# # Set the working directory
+# WORKDIR /app
+    
+# # Copy essential package files first for efficient caching
+# COPY package*.json ./
+    
+# # Install ALL dependencies (including dev dependencies needed for the build/transpilation step)
+# RUN npm install
+    
+# # Copy all source code and configuration files needed for the build
+# COPY tsconfig.json ./
+# COPY .env.example ./
+# COPY . ./
+    
+# RUN npm run build
+    
+# # -----------------------------------------------------------
+# # Stage 2: The Runner Stage (Final Production Image)
+# # Copies only the compiled JS, production dependencies, and essential files.
+# # -----------------------------------------------------------
+# FROM node:20-alpine AS runner
+    
+# WORKDIR /app
+    
+# # Copy package files again
+# COPY package.json package-lock.json ./
+    
+# # Install ONLY production dependencies (excluding dev dependencies)
+# RUN npm install --omit=dev
+    
+# # Copy the compiled output and necessary runtime files from the builder stage
+#  # Assuming 'npm run build' generates compiled JS files into a 'dist' or 'build' folder
+# COPY --from=builder /app/dist ./dist 
+# COPY --from=builder /app/.env.example ./.env.example 
+    
+# # Create the runtime .env file from the example (secrets still injected by docker-compose)
+# RUN cp .env.example .env
+    
+# # Expose the port the backend listens on (3001 as per your original plan)
+# EXPOSE 3001
+    
+# # Command to start the application using the compiled production assets
+# # IMPORTANT: Adjust 'dist/server.js' if your main compiled file has a different name
+# CMD ["npm", "start"]
+    

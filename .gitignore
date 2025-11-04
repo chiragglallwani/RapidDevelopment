@@ -106,3 +106,9 @@ Thumbs.db
 
 # Claude Code settings (if you want to keep local settings private)
 .claude/settings.local.json
+
+
+# custom backend
+backend/node_modules
+backend/dist
+backend/.env
