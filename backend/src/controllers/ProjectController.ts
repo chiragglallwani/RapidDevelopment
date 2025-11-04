@@ -21,7 +21,7 @@ export const createProject = async (
   try {
     const { name, description } = req.body;
     const assignedTo = req.userId;
-    
+
     if (!assignedTo) {
       return res
         .status(401)

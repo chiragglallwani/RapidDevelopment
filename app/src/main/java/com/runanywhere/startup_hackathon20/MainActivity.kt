@@ -14,15 +14,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.runanywhere.startup_hackathon20.data.repository.AuthRepository
+import com.runanywhere.startup_hackathon20.data.repository.ProjectRepository
+import com.runanywhere.startup_hackathon20.data.repository.TaskRepository
+import com.runanywhere.startup_hackathon20.navigation.AppNavigation
 import com.runanywhere.startup_hackathon20.ui.theme.Startup_hackathon20Theme
+import com.runanywhere.startup_hackathon20.viewmodel.AuthViewModel
+import com.runanywhere.startup_hackathon20.viewmodel.ProjectViewModel
+import com.runanywhere.startup_hackathon20.viewmodel.TaskViewModel
 
 class MainActivity : ComponentActivity() {
+    
+    private lateinit var authViewModel: AuthViewModel
+    private lateinit var projectViewModel: ProjectViewModel
+    private lateinit var taskViewModel: TaskViewModel
+    private lateinit var chatViewModel: ChatViewModel
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize repositories
+        val tokenManager = MyApplication.tokenManager
+        val authRepository = AuthRepository(tokenManager)
+        val projectRepository = ProjectRepository()
+        val taskRepository = TaskRepository()
+        
+        // Initialize ViewModels
+        authViewModel = AuthViewModel(authRepository)
+        projectViewModel = ProjectViewModel(projectRepository)
+        taskViewModel = TaskViewModel(taskRepository)
+        chatViewModel = ChatViewModel()
+        
         enableEdgeToEdge()
         setContent {
             Startup_hackathon20Theme {
-                ChatScreen()
+                AppNavigation(
+                    authViewModel = authViewModel,
+                    projectViewModel = projectViewModel,
+                    taskViewModel = taskViewModel,
+                    chatViewModel = chatViewModel
+                )
             }
         }
     }
