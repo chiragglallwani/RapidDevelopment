@@ -69,6 +69,7 @@ Wait for: `Server is running on port 3000`
 - ✅ **Real-time Streaming** - See AI responses generate word-by-word
 - ✅ **On-Device Inference** - All AI runs locally on device
 - ✅ **RunAnywhere SDK** - Optimized LlamaCpp integration
+- ✅ **Project Automation** - Chat commands can create projects, add tasks, assign developers, and summarize updates
 
 ### UI/UX
 - ✅ **Material 3 Design** - Modern, beautiful interface

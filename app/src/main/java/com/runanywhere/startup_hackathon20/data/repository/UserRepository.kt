@@ -4,7 +4,6 @@ import android.util.Log
 import com.runanywhere.startup_hackathon20.data.api.RetrofitClient
 import com.runanywhere.startup_hackathon20.data.local.TokenManager
 import com.runanywhere.startup_hackathon20.data.models.User
-import com.runanywhere.startup_hackathon20.data.models.UserListResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -14,38 +13,41 @@ sealed class UserResult {
 }
 
 class UserRepository(private val tokenManager: TokenManager) {
-    
+
     private val apiService = RetrofitClient.apiService
-    
-    suspend fun getDevelopers(): UserResult {
+    private var cachedDevelopers: List<User>? = null
+
+    suspend fun getDevelopers(forceRefresh: Boolean = false): UserResult {
+        if (!forceRefresh) {
+            cachedDevelopers?.let { cached ->
+                return UserResult.Success(cached)
+            }
+        }
+
         return withContext(Dispatchers.IO) {
             try {
-                Log.d("UserRepository", "Fetching developers...")
+                Log.d("UserRepository", "Fetching developers from API")
                 val response = apiService.getDevelopers()
 
-                Log.d("UserRepository", "Developers response code: ${response.code()}")
-                Log.d("UserRepository", "Developers response body: ${response.body()}")
-
                 if (response.isSuccessful && response.body() != null) {
-                    val userResponse = response.body()!!
-                    
-                    if (userResponse.success && userResponse.data != null) {
-                        Log.d("UserRepository", "Found ${userResponse.data.size} developers")
-                        UserResult.Success(userResponse.data)
-                    } else {
-                        Log.d("UserRepository", "No developers found, returning empty list")
-                        UserResult.Success(emptyList())
-                    }
+                    val body = response.body()!!
+                    val developers = body.data.orEmpty()
+                    cachedDevelopers = developers
+                    UserResult.Success(developers)
                 } else {
-                    val errorMessage = "HTTP ${response.code()}: ${response.message()}"
-                    Log.e("UserRepository", "API error: $errorMessage")
-                    UserResult.Error(errorMessage)
+                    val message = "HTTP ${response.code()}: ${response.message()}"
+                    Log.e("UserRepository", "Failed to fetch developers: $message")
+                    UserResult.Error(message)
                 }
             } catch (e: Exception) {
-                Log.e("UserRepository", "Network error: ${e.message}", e)
+                Log.e("UserRepository", "Error fetching developers", e)
                 UserResult.Error(e.message ?: "Network error occurred")
             }
         }
+    }
+
+    fun clearCache() {
+        cachedDevelopers = null
     }
 }
 

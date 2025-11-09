@@ -539,6 +539,10 @@ fun TaskCard(
     var showBlockReasonDialog by remember { mutableStateOf(false) }
     var pendingStatus by remember { mutableStateOf<String?>(null) }
     
+    // Check user role - default to showing all features if role is not set
+    val userRole = remember { MyApplication.tokenManager.getUserRole() ?: "" }
+    val isDeveloper = userRole == "developer"
+    
     val statusBackgroundColor = getStatusBackgroundColor(status)
     val statusTextColor = getStatusTextColor(status)
     val statusAccentColor = getStatusAccentColor(status)
@@ -665,16 +669,19 @@ fun TaskCard(
                                 Icon(Icons.Default.Edit, contentDescription = "Edit")
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            onClick = {
-                                showMenu = false
-                                showDeleteConfirm = true
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete")
-                            }
-                        )
+                        // Hide delete button for developers
+                        if (!isDeveloper) {
+                            DropdownMenuItem(
+                                text = { Text("Delete") },
+                                onClick = {
+                                    showMenu = false
+                                    showDeleteConfirm = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -739,6 +746,10 @@ fun CreateTaskDialog(
     var showAssigneeDropdown by remember { mutableStateOf(false) }
     var showBlockReasonDialog by remember { mutableStateOf(false) }
     var isBlockReasonError by remember { mutableStateOf(false) }
+    
+    // Check user role - default to showing all features if role is not set
+    val userRole = remember { MyApplication.tokenManager.getUserRole() ?: "" }
+    val isDeveloper = userRole == "developer"
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -819,70 +830,73 @@ fun CreateTaskDialog(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Assignee Selection
-                ExposedDropdownMenuBox(
-                    expanded = showAssigneeDropdown,
-                    onExpandedChange = { showAssigneeDropdown = !showAssigneeDropdown },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    val selectedDeveloper = developers.find { it.userId == assignedTo }
-                    OutlinedTextField(
-                        value = if (isLoadingDevelopers) "Loading..." else (selectedDeveloper?.name ?: "None"),
-                        onValueChange = { },
-                        label = { Text("Assignee") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        readOnly = true,
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAssigneeDropdown)
-                        },
-                        enabled = !isLoadingDevelopers,
-                        leadingIcon = if (isLoadingDevelopers) {
-                            { CircularProgressIndicator(modifier = Modifier.size(16.dp)) }
-                        } else null
-                    )
-
-                    ExposedDropdownMenu(
+                // Assignee Selection - hidden for developers
+                if (!isDeveloper) {
+                    ExposedDropdownMenuBox(
                         expanded = showAssigneeDropdown,
-                        onDismissRequest = { showAssigneeDropdown = false }
+                        onExpandedChange = { showAssigneeDropdown = !showAssigneeDropdown },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("None") },
-                            onClick = {
-                                assignedTo = null
-                                showAssigneeDropdown = false
-                            }
+                        val selectedDeveloper = developers.find { it.userId == assignedTo }
+                        OutlinedTextField(
+                            value = if (isLoadingDevelopers) "Loading..." else (selectedDeveloper?.name ?: "None"),
+                            onValueChange = { },
+                            label = { Text("Assignee") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAssigneeDropdown)
+                            },
+                            enabled = !isLoadingDevelopers,
+                            leadingIcon = if (isLoadingDevelopers) {
+                                { CircularProgressIndicator(modifier = Modifier.size(16.dp)) }
+                            } else null
                         )
-                        if (developers.isEmpty() && !isLoadingDevelopers) {
+
+                        ExposedDropdownMenu(
+                            expanded = showAssigneeDropdown,
+                            onDismissRequest = { showAssigneeDropdown = false }
+                        ) {
                             DropdownMenuItem(
-                                text = { Text("No developers available") },
-                                onClick = { }
+                                text = { Text("None") },
+                                onClick = {
+                                    assignedTo = null
+                                    showAssigneeDropdown = false
+                                }
                             )
-                        } else {
-                            developers.forEach { developer ->
+                            if (developers.isEmpty() && !isLoadingDevelopers) {
                                 DropdownMenuItem(
-                                    text = { 
-                                        Column {
-                                            Text(
-                                                text = developer.name,
-                                                style = MaterialTheme.typography.bodyLarge
-                                            )
-                                            Text(
-                                                text = developer.email,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        assignedTo = developer.userId
-                                        showAssigneeDropdown = false
-                                    }
+                                    text = { Text("No developers available") },
+                                    onClick = { }
                                 )
+                            } else {
+                                developers.forEach { developer ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Column {
+                                                Text(
+                                                    text = developer.name,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                Text(
+                                                    text = developer.email,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            assignedTo = developer.userId
+                                            showAssigneeDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
                 
                 // Block Reason - only show when status is "blocked"
@@ -987,6 +1001,10 @@ fun EditTaskDialog(
     var showBlockReasonDialog by remember { mutableStateOf(false) }
     var isBlockReasonError by remember { mutableStateOf(false) }
     
+    // Check user role - default to showing all features if role is not set
+    val userRole = remember { MyApplication.tokenManager.getUserRole() ?: "" }
+    val isDeveloper = userRole == "developer"
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Task") },
@@ -1009,131 +1027,75 @@ fun EditTaskDialog(
                     maxLines = 5
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Status Selection
-                Box {
-                    OutlinedTextField(
-                        value = when (status) {
-                            "to-do" -> "To Do"
-                            "in-progress" -> "In Progress"
-                            "blocked" -> "Blocked"
-                            "done" -> "Done"
-                            else -> status
-                        },
-                        onValueChange = { },
-                        label = { Text("Status") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showStatusDropdown = true },
-                        readOnly = true,
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Status")
-                        }
-                    )
-
-                    DropdownMenu(
-                        expanded = showStatusDropdown,
-                        onDismissRequest = { showStatusDropdown = false }
+                
+                // Assignee Selection - hidden for developers
+                if (!isDeveloper) {
+                    ExposedDropdownMenuBox(
+                        expanded = showAssigneeDropdown,
+                        onExpandedChange = { showAssigneeDropdown = !showAssigneeDropdown },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("to-do", "in-progress", "blocked", "done").forEach { statusOption ->
+                        val selectedDeveloper = developers.find { it.userId == assignedTo }
+                        OutlinedTextField(
+                            value = if (isLoadingDevelopers) "Loading..." else (selectedDeveloper?.name ?: "None"),
+                            onValueChange = { },
+                            label = { Text("Assignee") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAssigneeDropdown)
+                            },
+                            enabled = !isLoadingDevelopers,
+                            leadingIcon = if (isLoadingDevelopers) {
+                                { CircularProgressIndicator(modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = showAssigneeDropdown,
+                            onDismissRequest = { showAssigneeDropdown = false }
+                        ) {
                             DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        when (statusOption) {
-                                            "to-do" -> "To Do"
-                                            "in-progress" -> "In Progress"
-                                            "blocked" -> "Blocked"
-                                            "done" -> "Done"
-                                            else -> statusOption
-                                        }
-                                    )
-                                },
+                                text = { Text("None") },
                                 onClick = {
-                                    if (statusOption == "blocked" && status != "blocked") {
-                                        // Show block reason dialog when changing to blocked
-                                        showBlockReasonDialog = true
-                                        showStatusDropdown = false
-                                    } else {
-                                        status = statusOption
-                                        if (statusOption != "blocked") {
-                                            blockReason = ""
-                                            isBlockReasonError = false
-                                        }
-                                        showStatusDropdown = false
-                                    }
+                                    assignedTo = null
+                                    showAssigneeDropdown = false
                                 }
                             )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Assignee Selection
-                ExposedDropdownMenuBox(
-                    expanded = showAssigneeDropdown,
-                    onExpandedChange = { showAssigneeDropdown = !showAssigneeDropdown },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    val selectedDeveloper = developers.find { it.userId == assignedTo }
-                    OutlinedTextField(
-                        value = if (isLoadingDevelopers) "Loading..." else (selectedDeveloper?.name ?: "None"),
-                        onValueChange = { },
-                        label = { Text("Assignee") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        readOnly = true,
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAssigneeDropdown)
-                        },
-                        enabled = !isLoadingDevelopers,
-                        leadingIcon = if (isLoadingDevelopers) {
-                            { CircularProgressIndicator(modifier = Modifier.size(16.dp)) }
-                        } else null
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = showAssigneeDropdown,
-                        onDismissRequest = { showAssigneeDropdown = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("None") },
-                            onClick = {
-                                assignedTo = null
-                                showAssigneeDropdown = false
-                            }
-                        )
-                        if (developers.isEmpty() && !isLoadingDevelopers) {
-                            DropdownMenuItem(
-                                text = { Text("No developers available") },
-                                onClick = { }
-                            )
-                        } else {
-                            developers.forEach { developer ->
+                            if (developers.isEmpty() && !isLoadingDevelopers) {
                                 DropdownMenuItem(
-                                    text = { 
-                                        Column {
-                                            Text(
-                                                text = developer.name,
-                                                style = MaterialTheme.typography.bodyLarge
-                                            )
-                                            Text(
-                                                text = developer.email,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        assignedTo = developer.userId
-                                        showAssigneeDropdown = false
-                                    }
+                                    text = { Text("No developers available") },
+                                    onClick = { }
                                 )
+                            } else {
+                                developers.forEach { developer ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Column {
+                                                Text(
+                                                    text = developer.name,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                Text(
+                                                    text = developer.email,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            assignedTo = developer.userId
+                                            showAssigneeDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
-                Spacer(modifier = Modifier.height(12.dp))
                 
                 // Block Reason - only show when status is "blocked"
                 if (status == "blocked") {
