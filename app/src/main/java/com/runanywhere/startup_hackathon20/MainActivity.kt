@@ -15,11 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.runanywhere.startup_hackathon20.automation.ProjectAutomationManager
 import com.runanywhere.startup_hackathon20.data.repository.AuthRepository
 import com.runanywhere.startup_hackathon20.data.repository.ProjectRepository
 import com.runanywhere.startup_hackathon20.data.repository.TaskRepository
+import com.runanywhere.startup_hackathon20.data.repository.UserRepository
 import com.runanywhere.startup_hackathon20.navigation.AppNavigation
 import com.runanywhere.startup_hackathon20.ui.theme.Startup_hackathon20Theme
+import com.runanywhere.startup_hackathon20.viewmodel.AIProjectAssistantViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.AuthViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.ProjectViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.TaskViewModel
@@ -32,6 +35,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var projectViewModel: ProjectViewModel
     private lateinit var taskViewModel: TaskViewModel
     private lateinit var chatViewModel: ChatViewModel
+    private lateinit var aiAssistantViewModel: AIProjectAssistantViewModel
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,12 +47,15 @@ class MainActivity : ComponentActivity() {
         val authRepository = AuthRepository(tokenManager)
         val projectRepository = ProjectRepository(tokenManager)
         val taskRepository = TaskRepository(tokenManager)
+        val userRepository = UserRepository(tokenManager)
+        val automationManager = ProjectAutomationManager(projectRepository, taskRepository, userRepository)
         
         // Initialize ViewModels
         authViewModel = AuthViewModel(authRepository)
         projectViewModel = ProjectViewModel(projectRepository)
         taskViewModel = TaskViewModel(taskRepository)
-        chatViewModel = ChatViewModel()
+        chatViewModel = ChatViewModel(automationManager)
+        aiAssistantViewModel = AIProjectAssistantViewModel()
 
         Log.d("MainActivity", "ViewModels initialized")
         Log.d("MainActivity", "Token manager initialized: ${tokenManager.isLoggedIn()}")
@@ -60,7 +67,8 @@ class MainActivity : ComponentActivity() {
                     authViewModel = authViewModel,
                     projectViewModel = projectViewModel,
                     taskViewModel = taskViewModel,
-                    chatViewModel = chatViewModel
+                    chatViewModel = chatViewModel,
+                    aiAssistantViewModel = aiAssistantViewModel
                 )
             }
         }

@@ -9,10 +9,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.runanywhere.startup_hackathon20.ChatScreen
 import com.runanywhere.startup_hackathon20.ChatViewModel
+import com.runanywhere.startup_hackathon20.ui.ai.AIProjectAssistantScreen
 import com.runanywhere.startup_hackathon20.ui.auth.LoginScreen
 import com.runanywhere.startup_hackathon20.ui.auth.RegisterScreen
 import com.runanywhere.startup_hackathon20.ui.projects.ProjectDetailScreen
 import com.runanywhere.startup_hackathon20.ui.projects.ProjectListScreen
+import com.runanywhere.startup_hackathon20.viewmodel.AIProjectAssistantViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.AuthViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.ProjectViewModel
 import com.runanywhere.startup_hackathon20.viewmodel.TaskViewModel
@@ -23,6 +25,7 @@ sealed class Screen(val route: String) {
     object ProjectList : Screen("project_list")
     object ProjectDetail : Screen("project_detail")
     object Chat : Screen("chat")
+    object AIAssistant : Screen("ai_assistant")
 }
 
 @Composable
@@ -31,6 +34,7 @@ fun AppNavigation(
     projectViewModel: ProjectViewModel,
     taskViewModel: TaskViewModel,
     chatViewModel: ChatViewModel,
+    aiAssistantViewModel: AIProjectAssistantViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
@@ -89,6 +93,9 @@ fun AppNavigation(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToAIAssistant = {
+                    navController.navigate(Screen.AIAssistant.route)
                 }
             )
         }
@@ -110,6 +117,16 @@ fun AppNavigation(
         // Chat Screen
         composable(Screen.Chat.route) {
             ChatScreen(viewModel = chatViewModel)
+        }
+        
+        // AI Assistant Screen
+        composable(Screen.AIAssistant.route) {
+            AIProjectAssistantScreen(
+                viewModel = aiAssistantViewModel,
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
         }
     }
 }

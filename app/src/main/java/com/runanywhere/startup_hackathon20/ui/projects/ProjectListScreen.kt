@@ -23,7 +23,8 @@ fun ProjectListScreen(
     projectViewModel: ProjectViewModel,
     authViewModel: AuthViewModel,
     onProjectClick: (Project) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToAIAssistant: () -> Unit = {}
 ) {
     val projects by projectViewModel.projects.collectAsState()
     val projectState by projectViewModel.projectState.collectAsState()
@@ -67,6 +68,16 @@ fun ProjectListScreen(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("AI Assistant") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToAIAssistant()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = "AI Assistant")
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Profile") },
                             onClick = { showMenu = false },
