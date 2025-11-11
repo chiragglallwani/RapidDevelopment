@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep Google Gemini API classes
+-keep class com.google.ai.client.generativeai.** { *; }
+-keep class com.google.ai.client.generativeai.GenerativeModel { *; }
+-keep class com.google.ai.client.generativeai.GenerativeModel$Builder { *; }
+-keep class com.google.ai.client.generativeai.type.** { *; }
+-dontwarn com.google.ai.client.generativeai.**

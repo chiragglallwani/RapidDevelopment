@@ -1,20 +1,19 @@
 package com.runanywhere.startup_hackathon20.ai
 
+import android.content.Context
 import android.util.Log
+import com.runanywhere.sdk.data.models.SDKEnvironment
+import com.runanywhere.sdk.llm.llamacpp.LlamaCppServiceProvider
 import com.runanywhere.sdk.public.RunAnywhere
+import com.runanywhere.sdk.public.extensions.addModelFromURL
 import com.runanywhere.sdk.public.extensions.listAvailableModels
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 
-/**
- * RunAnywhere SDK provider implementation
- */
-class RunAnywhereProvider : AIProvider {
+class RunAnywhereProvider(private val context: Context) : AIProvider {
 
     override val providerType = AIProviderType.RUN_ANYWHERE
-    override val isInitialized: Boolean = true // RunAnywhere is initialized in Application class
-
-    private var currentModel: AIModel? = null
+    override var isInitialized: Boolean = false
+        private set
 
     companion object {
         private const val TAG = "RunAnywhereProvider"
@@ -22,109 +21,88 @@ class RunAnywhereProvider : AIProvider {
 
     override suspend fun initialize(): AIProviderResult<Unit> {
         return try {
-            // RunAnywhere is already initialized in the Application class
-            Log.d(TAG, "RunAnywhere provider initialized")
+            RunAnywhere.initialize(
+                context = context,
+                apiKey = "dev",
+                environment = SDKEnvironment.DEVELOPMENT
+            )
+            LlamaCppServiceProvider.register()
+            registerModels()
+            RunAnywhere.scanForDownloadedModels()
+            isInitialized = true
+            Log.i(TAG, "RunAnywhere Provider initialized successfully.")
             AIProviderResult.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize RunAnywhere provider", e)
-            AIProviderResult.Error("Failed to initialize RunAnywhere: ${e.message}", e)
+            Log.e(TAG, "RunAnywhere initialization failed", e)
+            AIProviderResult.Error(e.message ?: "Unknown error", e)
         }
     }
 
+    private suspend fun registerModels() {
+        addModelFromURL(
+            url = "https://huggingface.co/Triangle104/Qwen2.5-0.5B-Instruct-Q6_K-GGUF/resolve/main/qwen2.5-0.5b-instruct-q6_k.gguf",
+            name = "Qwen 2.5 0.5B Instruct Q6_K",
+            type = "LLM"
+        )
+        addModelFromURL(
+            url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q6_k.gguf",
+            name = "Qwen 2.5 1.5B Instruct Q6_K",
+            type = "LLM"
+        )
+    }
+
     override suspend fun getAvailableModels(): AIProviderResult<List<AIModel>> {
+        if (!isInitialized) return AIProviderResult.Error("Provider not initialized")
         return try {
-            val models = listAvailableModels()
-            val aiModels = models.map { modelInfo ->
-                AIModel(
-                    id = modelInfo.id,
-                    name = modelInfo.name,
-                    description = "RunAnywhere local model",
-                    isDownloaded = modelInfo.isDownloaded,
-                    isLoaded = false, // We don't have direct loaded status from RunAnywhere
-                    providerType = AIProviderType.RUN_ANYWHERE
-                )
+            val models = RunAnywhere.listAvailableModels().map {
+                AIModel(it.id, it.name, it.description, providerType, it.isDownloaded, it.isLoaded)
             }
-            Log.d(TAG, "Found ${aiModels.size} RunAnywhere models")
-            AIProviderResult.Success(aiModels)
+            AIProviderResult.Success(models)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get available models", e)
-            AIProviderResult.Error("Failed to get models: ${e.message}", e)
+            AIProviderResult.Error(e.message ?: "Unknown error", e)
         }
     }
 
     override suspend fun downloadModel(modelId: String): Flow<Float> {
-        return try {
-            Log.d(TAG, "Starting download for model: $modelId")
-            RunAnywhere.downloadModel(modelId)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to download model: $modelId", e)
-            flow {
-                emit(0f) // Emit 0 progress to indicate failure
-            }
-        }
+        return RunAnywhere.downloadModel(modelId)
     }
 
     override suspend fun loadModel(modelId: String): AIProviderResult<Unit> {
         return try {
-            Log.d(TAG, "Loading model: $modelId")
-            val success = RunAnywhere.loadModel(modelId)
-
-            if (success) {
-                // Update current model
-                val models = getAvailableModels()
-                if (models is AIProviderResult.Success) {
-                    currentModel = models.data.find { it.id == modelId }?.copy(isLoaded = true)
-                }
-                Log.d(TAG, "Successfully loaded model: $modelId")
+            if (RunAnywhere.loadModel(modelId)) {
                 AIProviderResult.Success(Unit)
             } else {
-                Log.e(TAG, "Failed to load model (returned false): $modelId")
-                AIProviderResult.Error("Failed to load model: $modelId")
+                AIProviderResult.Error("Failed to load model")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception while loading model: $modelId", e)
-            AIProviderResult.Error("Failed to load model: ${e.message}", e)
+            AIProviderResult.Error(e.message ?: "Unknown error", e)
         }
     }
 
     override suspend fun generateStream(prompt: String): Flow<String> {
-        return try {
-            Log.d(TAG, "Starting generation with prompt length: ${prompt.length}")
-            RunAnywhere.generateStream(prompt)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to generate stream", e)
-            flow {
-                emit("Error: ${e.message}")
-            }
-        }
+        if (!isReady()) return kotlinx.coroutines.flow.flow { throw IllegalStateException("RunAnywhere provider is not ready.") }
+        return RunAnywhere.generateStream(prompt)
     }
 
     override suspend fun generate(prompt: String): AIProviderResult<String> {
+        if (!isReady()) return AIProviderResult.Error("RunAnywhere provider is not ready.")
         return try {
-            Log.d(TAG, "Generating complete response for prompt length: ${prompt.length}")
-            var response = ""
-            generateStream(prompt).collect { token ->
-                response += token
-            }
-            Log.d(TAG, "Generation completed with response length: ${response.length}")
-            AIProviderResult.Success(response)
+            val result = RunAnywhere.generate(prompt)
+            AIProviderResult.Success(result)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to generate complete response", e)
-            AIProviderResult.Error("Generation failed: ${e.message}", e)
+            AIProviderResult.Error(e.message ?: "Unknown error", e)
         }
     }
 
     override fun getCurrentModel(): AIModel? {
-        return currentModel
+        return RunAnywhere.getCurrentModel()?.let {
+            AIModel(it.id, it.name, it.description, providerType, it.isDownloaded, it.isLoaded)
+        }
     }
 
-    override fun isReady(): Boolean {
-        return currentModel != null && currentModel!!.isLoaded
-    }
+    override fun isReady(): Boolean = isInitialized && RunAnywhere.getCurrentModel() != null
 
     override suspend fun cleanup() {
-        Log.d(TAG, "Cleaning up RunAnywhere provider")
-        currentModel = null
-        // RunAnywhere doesn't seem to have explicit cleanup methods
+        RunAnywhere.unloadModel()
     }
 }

@@ -9,9 +9,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-/**
- * Manager class that handles multiple AI providers and allows switching between them
- */
 class AIProviderManager(private val context: Context) {
 
     companion object {
@@ -26,35 +23,22 @@ class AIProviderManager(private val context: Context) {
 
     private val dataStore = context.dataStore
 
-    // Initialize providers
-    private val runAnywhereProvider = RunAnywhereProvider()
+    private val runAnywhereProvider = RunAnywhereProvider(context)
     private val geminiProvider = GeminiProviderProduction()
 
     private var currentProvider: AIProvider? = null
 
-    /**
-     * Initialize the manager and load the preferred provider
-     */
     suspend fun initialize(): AIProviderResult<Unit> {
         return try {
-            // Initialize all providers
             val runAnywhereResult = runAnywhereProvider.initialize()
-            
-            // Load API key from DataStore and initialize Gemini with it
             val savedApiKey = getGeminiApiKey()
-            val geminiResult = if (geminiProvider is GeminiProviderProduction) {
-                geminiProvider.initializeWithApiKey(savedApiKey)
-            } else {
-                geminiProvider.initialize()
-            }
+            geminiProvider.initializeWithApiKey(savedApiKey)
 
-            // Load saved preference for provider
             val savedProvider = getSavedProvider()
 
-            // Try to set the saved provider, fall back to available ones
             when (savedProvider) {
                 AIProviderType.GEMINI -> {
-                    if (geminiResult is AIProviderResult.Success) {
+                    if (geminiProvider.isInitialized) {
                         currentProvider = geminiProvider
                         Log.d(TAG, "Initialized with Gemini provider")
                     } else {
@@ -62,16 +46,9 @@ class AIProviderManager(private val context: Context) {
                         Log.d(TAG, "Gemini failed, falling back to RunAnywhere")
                     }
                 }
-
-                AIProviderType.RUN_ANYWHERE -> {
+                else -> {
                     currentProvider = runAnywhereProvider
                     Log.d(TAG, "Initialized with RunAnywhere provider")
-                }
-
-                null -> {
-                    // No saved preference, use RunAnywhere as default
-                    currentProvider = runAnywhereProvider
-                    Log.d(TAG, "No saved preference, defaulting to RunAnywhere")
                 }
             }
 
@@ -82,9 +59,6 @@ class AIProviderManager(private val context: Context) {
         }
     }
 
-    /**
-     * Switch to a different AI provider
-     */
     suspend fun switchProvider(providerType: AIProviderType): AIProviderResult<Unit> {
         return try {
             val newProvider = when (providerType) {
@@ -96,14 +70,11 @@ class AIProviderManager(private val context: Context) {
                 return AIProviderResult.Error("Provider ${providerType.name} is not initialized")
             }
 
-            // Cleanup current provider if different
             if (currentProvider != newProvider) {
                 currentProvider?.cleanup()
             }
 
             currentProvider = newProvider
-
-            // Save preference
             saveProvider(providerType)
 
             Log.d(TAG, "Switched to ${providerType.name} provider")
@@ -114,57 +85,36 @@ class AIProviderManager(private val context: Context) {
         }
     }
 
-    /**
-     * Get the current active provider
-     */
     fun getCurrentProvider(): AIProvider? = currentProvider
 
-    /**
-     * Get the current provider type
-     */
     fun getCurrentProviderType(): AIProviderType? = currentProvider?.providerType
 
-    /**
-     * Get all available providers with their status
-     */
     fun getAvailableProviders(): List<Pair<AIProviderType, Boolean>> {
-        val geminiAvailable = geminiProvider.isInitialized && 
-            (geminiProvider as? GeminiProviderProduction)?.hasApiKey() == true
         return listOf(
             AIProviderType.RUN_ANYWHERE to runAnywhereProvider.isInitialized,
-            AIProviderType.GEMINI to geminiAvailable
+            AIProviderType.GEMINI to geminiProvider.isInitialized
         )
     }
 
-    /**
-     * Update Gemini API key
-     */
     suspend fun updateGeminiApiKey(apiKey: String): AIProviderResult<Unit> {
         return try {
             if (apiKey.isBlank()) {
                 return AIProviderResult.Error("API key cannot be empty")
             }
 
-            // Save to DataStore
             dataStore.edit { preferences ->
                 preferences[GEMINI_API_KEY] = apiKey
             }
             Log.d(TAG, "Saved Gemini API key to DataStore")
 
-            // Update provider
-            if (geminiProvider is GeminiProviderProduction) {
-                if (geminiProvider.updateApiKey(apiKey)) {
-                    // Ensure provider is initialized
-                    if (!geminiProvider.isInitialized) {
-                        geminiProvider.initializeWithApiKey(apiKey)
-                    }
-                    Log.d(TAG, "Gemini API key updated successfully in provider")
-                    AIProviderResult.Success(Unit)
-                } else {
-                    AIProviderResult.Error("Failed to update API key in provider")
+            if (geminiProvider.updateApiKey(apiKey)) {
+                if (!geminiProvider.isInitialized) {
+                    geminiProvider.initializeWithApiKey(apiKey)
                 }
+                Log.d(TAG, "Gemini API key updated successfully in provider")
+                AIProviderResult.Success(Unit)
             } else {
-                AIProviderResult.Error("Gemini provider not available")
+                AIProviderResult.Error("Failed to update API key in provider")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update Gemini API key", e)
@@ -172,9 +122,6 @@ class AIProviderManager(private val context: Context) {
         }
     }
 
-    /**
-     * Get stored Gemini API key
-     */
     suspend fun getGeminiApiKey(): String? {
         return try {
             dataStore.data.first()[GEMINI_API_KEY]
@@ -184,30 +131,24 @@ class AIProviderManager(private val context: Context) {
         }
     }
 
-    // Delegate methods to current provider
     suspend fun getAvailableModels(): AIProviderResult<List<AIModel>> {
-        return currentProvider?.getAvailableModels()
-            ?: AIProviderResult.Error("No provider available")
+        return currentProvider?.getAvailableModels() ?: AIProviderResult.Error("No provider available")
     }
 
     suspend fun downloadModel(modelId: String): Flow<Float> {
-        return currentProvider?.downloadModel(modelId)
-            ?: kotlinx.coroutines.flow.flow { emit(0f) }
+        return currentProvider?.downloadModel(modelId) ?: kotlinx.coroutines.flow.flow { emit(0f) }
     }
 
     suspend fun loadModel(modelId: String): AIProviderResult<Unit> {
-        return currentProvider?.loadModel(modelId)
-            ?: AIProviderResult.Error("No provider available")
+        return currentProvider?.loadModel(modelId) ?: AIProviderResult.Error("No provider available")
     }
 
     suspend fun generateStream(prompt: String): Flow<String> {
-        return currentProvider?.generateStream(prompt)
-            ?: kotlinx.coroutines.flow.flow { emit("No provider available") }
+        return currentProvider?.generateStream(prompt) ?: kotlinx.coroutines.flow.flow { emit("No provider available") }
     }
 
     suspend fun generate(prompt: String): AIProviderResult<String> {
-        return currentProvider?.generate(prompt)
-            ?: AIProviderResult.Error("No provider available")
+        return currentProvider?.generate(prompt) ?: AIProviderResult.Error("No provider available")
     }
 
     fun getCurrentModel(): AIModel? {
@@ -224,7 +165,6 @@ class AIProviderManager(private val context: Context) {
         currentProvider = null
     }
 
-    // Private helper methods
     private suspend fun saveProvider(providerType: AIProviderType) {
         dataStore.edit { preferences ->
             preferences[SELECTED_PROVIDER_KEY] = providerType.name

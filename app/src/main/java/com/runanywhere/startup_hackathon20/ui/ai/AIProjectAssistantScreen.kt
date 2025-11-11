@@ -1,8 +1,8 @@
 package com.runanywhere.startup_hackathon20.ui.ai
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.runanywhere.startup_hackathon20.ai.AIModel
 import com.runanywhere.startup_hackathon20.ai.AIProviderType
 import com.runanywhere.startup_hackathon20.viewmodel.AIProjectAssistantViewModel
 
@@ -25,7 +24,7 @@ fun AIProjectAssistantScreen(
     val currentProviderType by viewModel.currentProviderType.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    
+
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("AI Chat", "AI Settings")
 
@@ -53,9 +52,9 @@ fun AIProjectAssistantScreen(
             // Enhanced status banner with provider info
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = if (currentModelId != null) 
-                    MaterialTheme.colorScheme.secondaryContainer 
-                else 
+                color = if (currentModelId != null)
+                    MaterialTheme.colorScheme.secondaryContainer
+                else
                     MaterialTheme.colorScheme.errorContainer,
                 tonalElevation = 2.dp
             ) {
@@ -140,26 +139,28 @@ fun AIProjectAssistantScreen(
 fun AIChatTab(viewModel: AIProjectAssistantViewModel, isLoading: Boolean) {
     var userInput by remember { mutableStateOf("") }
     val executionResult by viewModel.executionResult.collectAsState()
-    
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .verticalScroll(scrollState)
     ) {
         Text(
             "AI Project Assistant",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             "Give me natural language commands to manage your projects and tasks.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Example commands card
@@ -208,9 +209,9 @@ fun AIChatTab(viewModel: AIProjectAssistantViewModel, isLoading: Boolean) {
             minLines = 2,
             maxLines = 4
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Button(
             onClick = {
                 if (userInput.isNotEmpty()) {
@@ -233,7 +234,7 @@ fun AIChatTab(viewModel: AIProjectAssistantViewModel, isLoading: Boolean) {
         // Show execution result
         executionResult?.let { result ->
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -258,12 +259,15 @@ fun AIChatTab(viewModel: AIProjectAssistantViewModel, isLoading: Boolean) {
                             Icon(Icons.Default.Clear, "Clear")
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
                         result.message,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .heightIn(max = 200.dp)
+                            .verticalScroll(rememberScrollState())
                     )
 
                     if (result.actions.isNotEmpty()) {

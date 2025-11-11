@@ -4,9 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
-import com.runanywhere.sdk.public.RunAnywhere
-import com.runanywhere.sdk.public.extensions.listAvailableModels
-import com.runanywhere.sdk.models.ModelInfo
+import com.runanywhere.startup_hackathon20.ai.AiProvider
 import com.runanywhere.startup_hackathon20.automation.AutomationEnvelope
 import com.runanywhere.startup_hackathon20.automation.ProjectAutomationManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +19,7 @@ data class ChatMessage(
 
 // ViewModel
 class ChatViewModel(
+    private val aiProvider: AiProvider,
     private val automationManager: ProjectAutomationManager
 ) : ViewModel() {
 
@@ -33,8 +32,8 @@ class ChatViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    private val _availableModels = MutableStateFlow<List<ModelInfo>>(emptyList())
-    val availableModels: StateFlow<List<ModelInfo>> = _availableModels
+    private val _availableModels = MutableStateFlow<List<String>>(emptyList())
+    val availableModels: StateFlow<List<String>> = _availableModels
 
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     val downloadProgress: StateFlow<Float?> = _downloadProgress
@@ -52,52 +51,18 @@ class ChatViewModel(
     private fun loadAvailableModels() {
         viewModelScope.launch {
             try {
-                val models = listAvailableModels()
+                val models = aiProvider.getModels()
                 _availableModels.value = models
-                _statusMessage.value = "Ready - Please download and load a model"
+                _statusMessage.value = "Ready - Please select a model"
             } catch (e: Exception) {
                 _statusMessage.value = "Error loading models: ${e.message}"
             }
         }
     }
 
-    fun downloadModel(modelId: String) {
-        viewModelScope.launch {
-            try {
-                _statusMessage.value = "Downloading model..."
-                RunAnywhere.downloadModel(modelId).collect { progress ->
-                    _downloadProgress.value = progress
-                    _statusMessage.value = "Downloading: ${(progress * 100).toInt()}%"
-                }
-                _downloadProgress.value = null
-                _statusMessage.value = "Download complete! Please load the model."
-            } catch (e: Exception) {
-                _statusMessage.value = "Download failed: ${e.message}"
-                _downloadProgress.value = null
-            }
-        }
-    }
-
-    fun loadModel(modelId: String) {
-        viewModelScope.launch {
-            try {
-                _statusMessage.value = "Loading model..."
-                val success = RunAnywhere.loadModel(modelId)
-                if (success) {
-                    _currentModelId.value = modelId
-                    _statusMessage.value = "Model loaded! Ready to chat."
-                } else {
-                    _statusMessage.value = "Failed to load model"
-                }
-            } catch (e: Exception) {
-                _statusMessage.value = "Error loading model: ${e.message}"
-            }
-        }
-    }
-
     fun sendMessage(text: String) {
         if (_currentModelId.value == null) {
-            _statusMessage.value = "Please load a model first"
+            _statusMessage.value = "Please select a model first"
             return
         }
 
@@ -111,7 +76,7 @@ class ChatViewModel(
                 val prompt = buildPrompt(text)
                 var assistantResponse = ""
 
-                RunAnywhere.generateStream(prompt).collect { token ->
+                aiProvider.generateContent(_currentModelId.value!!, prompt).collect { token ->
                     assistantResponse += token
                     val displayText = stripAutomationContent(assistantResponse)
 
@@ -231,6 +196,11 @@ class ChatViewModel(
         }
 
         return sections.joinToString(separator = "\n\n").trim()
+    }
+
+    fun selectModel(modelId: String) {
+        _currentModelId.value = modelId
+        _statusMessage.value = "Model selected: $modelId"
     }
 
     fun refreshModels() {
