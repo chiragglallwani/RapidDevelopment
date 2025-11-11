@@ -1,5 +1,6 @@
 package com.runanywhere.startup_hackathon20.data.repository
 
+import android.util.Log
 import com.runanywhere.startup_hackathon20.data.api.RetrofitClient
 import com.runanywhere.startup_hackathon20.data.local.TokenManager
 import com.runanywhere.startup_hackathon20.data.models.AuthRequest
@@ -34,7 +35,10 @@ class AuthRepository(private val tokenManager: TokenManager) {
                         
                         // Save user info
                         authResponse.user?.let { user ->
+                            Log.d("AuthRepository", "Saving user info: name=${user.name}, email=${user.email}, role=${user.role}")
                             tokenManager.saveUserInfo(user.id.toString(), user.name, user.email, user.role)
+                        } ?: run {
+                            Log.w("AuthRepository", "User object is null in login response - role will not be saved")
                         }
                         
                         AuthResult.Success(authResponse)
@@ -114,6 +118,10 @@ class AuthRepository(private val tokenManager: TokenManager) {
     
     fun getUserEmail(): String? {
         return tokenManager.getUserEmail()
+    }
+    
+    fun getUserRole(): String? {
+        return tokenManager.getUserRole()
     }
 }
 

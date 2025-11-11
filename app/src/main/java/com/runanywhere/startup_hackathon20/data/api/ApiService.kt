@@ -37,7 +37,11 @@ interface ApiService {
     
     @DELETE("projects/{id}")
     suspend fun deleteProject(@Path("id") projectId: String): Response<ApiResponse<Unit>>
-    
+
+    // Project Search Endpoint
+    @GET("projects/search/{text}")
+    suspend fun searchProject(@Path("text") searchText: String): Response<ProjectResponse>
+
     // Task Endpoints
     @GET("tasks")
     suspend fun getTasks(@Query("projectId") projectId: String): Response<TaskListResponse>
@@ -53,7 +57,11 @@ interface ApiService {
     
     @DELETE("tasks/{id}")
     suspend fun deleteTask(@Path("id") taskId: String): Response<ApiResponse<Unit>>
-    
+
+    // Task Search Endpoint
+    @GET("tasks/search/{text}")
+    suspend fun searchTask(@Path("text") searchText: String): Response<TaskResponse>
+
     // User Endpoints
     @GET("users/developers")
     suspend fun getDevelopers(): Response<UserListResponse>

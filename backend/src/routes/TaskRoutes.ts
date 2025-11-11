@@ -4,6 +4,7 @@ import {
   getProjectTasks,
   updateTask,
   deleteTask,
+  findTask,
 } from "../controllers/TaskController";
 import { authMiddleware } from "../middleware/AuthMiddleware";
 
@@ -349,5 +350,111 @@ TaskRoutes.put("/:id", authMiddleware, updateTask);
  *       - bearerAuth: []
  */
 TaskRoutes.delete("/:id", authMiddleware, deleteTask);
+
+/**
+ * @swagger
+ * /api/v1/tasks/search/{text}:
+ *   get:
+ *     summary: Find the most closely matching task by title or description
+ *     parameters:
+ *       - in: path
+ *         name: text
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The search text to match against task title or description
+ *     responses:
+ *       200:
+ *         description: Task found successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       enum: ["to-do", "in-progress", "blocked", "done"]
+ *                     blockReason:
+ *                       type: string
+ *                     projectId:
+ *                       type: string
+ *                     assignedTo:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Bad request - Search text cannot be empty
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Search text cannot be empty
+ *       401:
+ *         description: Unauthorized - Missing or invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Unauthorized
+ *       404:
+ *         description: No matching task found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: No matching task found
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Failed to find task
+ *                 error:
+ *                   type: string
+ *     security:
+ *       - bearerAuth: []
+ */
+TaskRoutes.get("/search/:text", authMiddleware, findTask);
 
 export default TaskRoutes;

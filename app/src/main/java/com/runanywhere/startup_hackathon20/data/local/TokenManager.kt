@@ -2,8 +2,11 @@ package com.runanywhere.startup_hackathon20.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import org.json.JSONObject
 
 class TokenManager(context: Context) {
     
@@ -65,7 +68,75 @@ class TokenManager(context: Context) {
     }
     
     fun getUserRole(): String? {
-        return sharedPreferences.getString(KEY_USER_ROLE, null)
+        // First try to get from saved preferences
+        val savedRole = sharedPreferences.getString(KEY_USER_ROLE, null)
+        if (savedRole != null) {
+            return savedRole
+        }
+        
+        // If not saved, try to decode from JWT token
+        val token = getAccessToken()
+        if (token != null) {
+            try {
+                val role = decodeRoleFromToken(token)
+                if (role != null) {
+                    // Save it for future use
+                    sharedPreferences.edit()
+                        .putString(KEY_USER_ROLE, role)
+                        .apply()
+                    Log.d("TokenManager", "Extracted role from JWT token: $role")
+                    return role
+                }
+            } catch (e: Exception) {
+                Log.e("TokenManager", "Error decoding role from token", e)
+            }
+        }
+        
+        return null
+    }
+    
+    /**
+     * Decode JWT token and extract role from payload
+     * JWT format: header.payload.signature
+     * We only need to decode the payload (base64 JSON)
+     */
+    private fun decodeRoleFromToken(token: String): String? {
+        try {
+            // Split JWT into parts
+            val parts = token.split(".")
+            if (parts.size != 3) {
+                Log.w("TokenManager", "Invalid JWT token format")
+                return null
+            }
+            
+            // Decode the payload (second part)
+            val payload = parts[1]
+            
+            // Add padding if needed (Base64 requires padding)
+            val paddedPayload = when (payload.length % 4) {
+                2 -> payload + "=="
+                3 -> payload + "="
+                else -> payload
+            }
+            
+            // Decode base64
+            val decodedBytes = Base64.decode(paddedPayload, Base64.URL_SAFE)
+            val decodedString = String(decodedBytes, Charsets.UTF_8)
+            
+            // Parse JSON
+            val jsonObject = JSONObject(decodedString)
+            
+            // Extract role
+            return if (jsonObject.has("role")) {
+                jsonObject.getString("role")
+            } else {
+                Log.w("TokenManager", "Role not found in JWT payload")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("TokenManager", "Error decoding JWT token", e)
+            return null
+        }
     }
     
     fun isLoggedIn(): Boolean {

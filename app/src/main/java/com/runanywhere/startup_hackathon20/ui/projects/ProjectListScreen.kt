@@ -1,5 +1,6 @@
 package com.runanywhere.startup_hackathon20.ui.projects
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +31,18 @@ fun ProjectListScreen(
     val projectState by projectViewModel.projectState.collectAsState()
     val isLoading by projectViewModel.isLoading.collectAsState()
     val userName by authViewModel.userName.collectAsState()
+    
+    // Get user role to check if delete should be shown
+    // Check role each time the screen recomposes
+    var userRole by remember { mutableStateOf<String?>(authViewModel.getUserRole()) }
+    val isProjectManager = userRole == "project-manager"
+    
+    // Update role when screen is displayed and log it
+    LaunchedEffect(Unit) {
+        userRole = authViewModel.getUserRole()
+        Log.d("ProjectListScreen", "User role retrieved: $userRole, isProjectManager: $isProjectManager")
+        Log.d("ProjectListScreen", "TokenManager getUserRole: ${authViewModel.getUserRole()}")
+    }
     
     var showCreateDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -155,7 +168,11 @@ fun ProjectListScreen(
                     items(projects) { project ->
                         ProjectCard(
                             project = project,
-                            onClick = { onProjectClick(project) }
+                            onClick = { onProjectClick(project) },
+                            onDelete = {
+                                projectViewModel.deleteProject(project.projectId)
+                            },
+                            showDelete = isProjectManager
                         )
                     }
                 }
@@ -163,7 +180,7 @@ fun ProjectListScreen(
         }
     }
     
-    if (showCreateDialog) {
+    if (showCreateDialog && isProjectManager) {
         CreateProjectDialog(
             onDismiss = { showCreateDialog = false },
             onConfirm = { name, description ->
@@ -175,30 +192,81 @@ fun ProjectListScreen(
 }
 
 @Composable
-fun ProjectCard(project: Project, onClick: () -> Unit) {
+fun ProjectCard(
+    project: Project,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    showDelete: Boolean = false
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = project.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = project.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = project.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = project.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            if (showDelete && onDelete != null) {
+                IconButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete Project",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
+    }
+    
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Project") },
+            text = { 
+                Text("Are you sure you want to delete \"${project.name}\"? This action cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete?.invoke()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

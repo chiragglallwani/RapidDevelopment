@@ -201,7 +201,12 @@ export const deleteTask = async (
   res: Response<{ success: boolean; error?: string; message?: string }>
 ) => {
   const { id } = req.params;
-  try {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  const isManager = await isUserManager(userId, "project-manager");
+  if (isManager) {
     const task: ITask | null = await TaskModel.findByIdAndDelete(id);
 
     if (!task) {
@@ -213,11 +218,131 @@ export const deleteTask = async (
     res
       .status(200)
       .json({ success: true, message: "Task deleted successfully" });
+  }
+};
+
+export const findTask = async (
+  req: Request<{ text: string }>,
+  res: Response<{
+    data?: ITask;
+    success: boolean;
+    error?: string;
+    message?: string;
+  }>
+) => {
+  try {
+    const { text } = req.params;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Search text cannot be empty",
+      });
+    }
+
+    // Find all tasks that match the search text within user's scope
+    const searchText = text.trim();
+    const escapedSearchText = searchText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchRegex = new RegExp(escapedSearchText, "i");
+    const lowerSearchText = searchText.toLowerCase();
+
+    // Determine user scope - get tasks user has access to
+    const isManager = await isUserManager(userId, "project-manager");
+    let userTasks: ITask[] = [];
+
+    if (isManager) {
+      // Manager can search in tasks of projects they manage
+      const managerProjects = await ProjectModel.find({ assignedTo: userId });
+      const projectIds = managerProjects.map((p: IProject) => p._id);
+      userTasks = await TaskModel.find({
+        projectId: { $in: projectIds },
+      });
+    } else {
+      // Developer can search in tasks assigned to them
+      userTasks = await TaskModel.find({ assignedTo: userId });
+    }
+
+    // Filter tasks that match the search text
+    const allTasks: ITask[] = userTasks.filter((task) => {
+      return searchRegex.test(task.title) || searchRegex.test(task.description);
+    });
+
+    if (!allTasks || allTasks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No matching task found",
+      });
+    }
+
+    // Calculate relevance score for each task
+    const tasksWithScore = allTasks.map((task) => {
+      let score = 0;
+      const lowerTitle = task.title.toLowerCase();
+      const lowerDescription = task.description.toLowerCase();
+
+      // Score title matches (highest priority first)
+      if (lowerTitle === lowerSearchText) {
+        score += 100; // Exact match in title
+      } else if (lowerTitle.startsWith(lowerSearchText)) {
+        score += 60; // Title starts with search text
+      } else if (new RegExp(`\\b${escapedSearchText}`, "i").test(task.title)) {
+        score += 30; // Word boundary match in title
+      } else if (lowerTitle.includes(lowerSearchText)) {
+        score += 10; // Contains match in title
+      }
+
+      // Score description matches (highest priority first)
+      if (lowerDescription === lowerSearchText) {
+        score += 80; // Exact match in description
+      } else if (lowerDescription.startsWith(lowerSearchText)) {
+        score += 40; // Description starts with search text
+      } else if (
+        new RegExp(`\\b${escapedSearchText}`, "i").test(task.description)
+      ) {
+        score += 20; // Word boundary match in description
+      } else if (lowerDescription.includes(lowerSearchText)) {
+        score += 5; // Contains match in description
+      }
+
+      return { task, score };
+    });
+
+    // Sort by score (descending) and get the best match
+    tasksWithScore.sort((a, b) => b.score - a.score);
+    const bestMatch = tasksWithScore[0];
+
+    if (!bestMatch) {
+      return res.status(404).json({
+        success: false,
+        message: "No matching task found",
+      });
+    }
+
+    const task = bestMatch.task;
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: task._id?.toString() || "",
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        blockReason: task.blockReason ?? "",
+        projectId: task.projectId?.toString() || "",
+        assignedTo: task.assignedTo?.toString() || "",
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+      },
+    });
   } catch (error) {
-    console.error("Error deleting task:", error);
+    console.error("Error finding task:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to delete task",
+      message: "Failed to find task",
       error: (error as Error).message,
     });
   }

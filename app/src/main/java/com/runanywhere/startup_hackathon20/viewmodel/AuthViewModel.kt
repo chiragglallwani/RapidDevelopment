@@ -111,5 +111,9 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         Log.d("AuthViewModel", "User name: ${_userName.value}")
         Log.d("AuthViewModel", "User email: ${_userEmail.value}")
     }
+    
+    fun getUserRole(): String? {
+        return authRepository.getUserRole()
+    }
 }
 

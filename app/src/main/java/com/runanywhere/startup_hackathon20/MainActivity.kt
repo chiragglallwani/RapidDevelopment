@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         projectViewModel = ProjectViewModel(projectRepository)
         taskViewModel = TaskViewModel(taskRepository)
         chatViewModel = ChatViewModel(automationManager)
-        aiAssistantViewModel = AIProjectAssistantViewModel()
+        aiAssistantViewModel = AIProjectAssistantViewModel(this, projectRepository, taskRepository)
 
         Log.d("MainActivity", "ViewModels initialized")
         Log.d("MainActivity", "Token manager initialized: ${tokenManager.isLoggedIn()}")

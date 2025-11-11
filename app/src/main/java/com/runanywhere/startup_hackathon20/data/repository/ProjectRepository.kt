@@ -155,5 +155,29 @@ class ProjectRepository(private val tokenManager: TokenManager) {
             }
         }
     }
-}
 
+    suspend fun searchProject(searchText: String): ProjectResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d("ProjectRepository", "Searching for project: $searchText")
+                val response = apiService.searchProject(searchText)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val projectResponse = response.body()!!
+
+                    if (projectResponse.success && projectResponse.data != null) {
+                        Log.d("ProjectRepository", "Project found: ${projectResponse.data.name}")
+                        ProjectResult.SingleSuccess(projectResponse.data)
+                    } else {
+                        ProjectResult.Error(projectResponse.message ?: "No matching project found")
+                    }
+                } else {
+                    ProjectResult.Error(response.message() ?: "Failed to search project")
+                }
+            } catch (e: Exception) {
+                Log.e("ProjectRepository", "Error searching project: ${e.message}", e)
+                ProjectResult.Error(e.message ?: "Network error occurred")
+            }
+        }
+    }
+}

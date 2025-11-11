@@ -153,5 +153,29 @@ class TaskRepository(private val tokenManager: TokenManager) {
             }
         }
     }
-}
 
+    suspend fun searchTask(searchText: String): TaskResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d("TaskRepository", "Searching for task: $searchText")
+                val response = apiService.searchTask(searchText)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val taskResponse = response.body()!!
+
+                    if (taskResponse.success && taskResponse.data != null) {
+                        Log.d("TaskRepository", "Task found: ${taskResponse.data.title}")
+                        TaskResult.SingleSuccess(taskResponse.data)
+                    } else {
+                        TaskResult.Error(taskResponse.message ?: "No matching task found")
+                    }
+                } else {
+                    TaskResult.Error(response.message() ?: "Failed to search task")
+                }
+            } catch (e: Exception) {
+                Log.e("TaskRepository", "Error searching task: ${e.message}", e)
+                TaskResult.Error(e.message ?: "Network error occurred")
+            }
+        }
+    }
+}

@@ -17,6 +17,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Add BuildConfig fields for API keys
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"${project.findProperty("GEMINI_API_KEY") ?: ""}\""
+        )
     }
 
     buildTypes {
@@ -37,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -46,6 +54,9 @@ dependencies {
     implementation(files("libs/RunAnywhereKotlinSDK-release.aar"))
     // LLM Module (2.12MB) - includes llama.cpp with 7 ARM64 CPU variants
     implementation(files("libs/runanywhere-llm-llamacpp-release.aar"))
+
+    // Gemini API
+    implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
 
     // Required SDK dependencies (transitive dependencies from AARs)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")

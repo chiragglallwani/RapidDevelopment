@@ -10,10 +10,13 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-    
-    // TODO: Replace with your backend URL
-    private const val BASE_URL = "http://192.168.31.130:3001/api/v1/" // Android emulator localhost
-    // For physical device, use: "http://YOUR_LOCAL_IP:3000/api/v1/"
+    // BASE_URL Configuration:
+    // For Android Emulator: Use 10.0.2.2 (emulator's way to access host machine)
+    // For Physical Device: Use your actual local IP address
+    // For Production: Use your production server URL
+
+    private const val BASE_URL = "http://10.0.2.2:3001/api/v1/" // For Android emulator
+    // For physical device, use: "http://192.168.1.6:3001/api/v1/" (your current local IP)
     // For production: "https://your-backend-url.com/api/v1/"
     
     private var tokenManager: TokenManager? = null
